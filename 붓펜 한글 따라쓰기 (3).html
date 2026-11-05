@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>붓펜 한글 따라쓰기</title>
+<style>
+:root{--bg:#fff6e5;--card:#fff;--ink:#2b2118;--sub:#7a6a58;--acc:#e8590c;--line:#f0d9b5;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1812;--card:#2a231b;--ink:#f5ecdf;--sub:#b9a98f;--line:#4a3d2c}}
+:root[data-theme="dark"]{--bg:#1d1812;--card:#2a231b;--ink:#f5ecdf;--sub:#b9a98f;--line:#4a3d2c}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;-webkit-user-select:none;user-select:none}
+#app{max-width:1000px;margin:0 auto;padding:12px;text-align:center}
+h1{font-size:clamp(24px,5vw,38px);margin:8px 0 4px}
+.sub{color:var(--sub);margin:0 0 16px;font-size:18px}
+#stages{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.st{background:var(--card);border:3px solid var(--line);border-radius:20px;padding:16px;font-size:20px;font-weight:700;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:12px;text-align:left}
+.st:active{transform:scale(.97)}.st .e{font-size:36px}.st small{display:block;color:var(--sub);font-weight:400;font-size:16px;margin-top:2px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}.bar b{font-size:19px}
+button{font:inherit;font-weight:700;border:3px solid var(--line);background:var(--card);color:var(--ink);border-radius:16px;padding:10px 16px;font-size:18px;cursor:pointer}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.ctl{display:flex;justify-content:center;gap:10px;margin-top:8px;flex-wrap:wrap}.ctl button{padding:12px 18px;font-size:20px}
+#tip{background:var(--card);border:2px dashed var(--line);border-radius:14px;padding:8px 12px;margin:0 auto 8px;font-size:16px;line-height:1.4;max-width:900px}
+#wrap{position:relative;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.25);background:#fffdf7}
+canvas{position:absolute;left:0;top:0;touch-action:none}
+#msg{min-height:40px;font-size:22px;font-weight:700;margin-top:8px}
+[hidden]{display:none!important}
+</style></head><body>
+<div id="app">
+<section id="home"><h1>🖌️ 붓펜 한글 따라쓰기</h1><p class="sub">숫자와 화살표를 따라 획순대로 써 보세요!</p><div id="stages"></div></section>
+<section id="play" hidden>
+<div class="bar"><button id="back">← 처음</button><b id="ptitle"></b><span id="dots"></span></div>
+<div id="tip"></div>
+<div id="wrap"><canvas id="bg"></canvas><canvas id="gd"></canvas><canvas id="ink"></canvas></div>
+<div id="msg"></div>
+<div class="ctl"><button id="clr">🧽 처음부터</button><button id="hint" hidden>💡 힌트</button><button id="chk" class="pri" hidden>✅ 확인</button><button id="nxt" class="pri" hidden>다음 ➡️</button></div>
+</section></div>
+<script>
+const c=(cx,cy,r,n=28)=>{const a=[];for(let i=0;i<=n;i++){const t=-Math.PI/2-2*Math.PI*i/n;a.push(cx+r*Math.cos(t),cy+r*Math.sin(t))}return a};
+const G={
+'ㅡ':[[8,50,92,50]],'ㅣ':[[50,8,50,92]],
+'#':[[10,25,90,25],[10,50,90,50],[10,75,90,75],[25,10,25,90],[50,10,50,90],[75,10,75,90]],
+'ㄱ':[[16,14,84,14,84,86]],'ㄴ':[[18,14,18,84,84,84]],
+'ㅈ':[[14,26,86,26],[50,26,18,86],[50,26,82,86]],'ㅇ':[c(50,50,34)],
+'ㄹ':[[18,14,82,14,82,50],[82,50,18,50,18,86],[18,86,84,86]],
+'ㅅ':[[50,14,16,86],[50,14,84,86]],
+'ㅏ':[[44,12,44,88],[72,50,44,50]],'ㅓ':[[56,12,56,88],[28,50,56,50]],
+'ㅗ':[[50,58,50,82],[8,82,92,82]],'ㅜ':[[8,36,92,36],[50,36,50,62]],
+'나':[[14,12,14,86,50,86],[70,8,70,92],[90,50,70,50]],
+'무':[[10,10,10,44],[10,10,90,10,90,44],[10,44,90,44],[6,64,94,64],[50,64,50,92]],
+'우':[c(50,26,17),[6,58,94,58],[50,58,50,92]],
+'리':[[8,12,54,12,54,50],[54,50,8,50,8,88],[8,88,56,88],[84,8,84,92]],
+'파':[[6,18,60,18],[22,18,22,80],[44,18,44,80],[6,80,60,80],[80,8,80,92],[92,48,80,48]],
+'도':[[6,12,94,12],[16,12,16,46,90,46],[50,68,50,86],[6,86,94,86]],
+'소':[[48,8,12,52],[48,8,84,52],[50,70,50,86],[6,86,94,86]],
+'하':[[34,8,34,20],[8,28,62,28],c(34,58,17),[78,8,78,92],[92,48,78,48]],
+'늬':[[10,10,10,44,64,44],[10,74,62,74],[84,8,84,92]],
+'바':[[12,12,12,84],[54,12,54,84],[12,52,54,52],[12,84,54,84],[80,8,80,92],[94,48,80,48]],
+'람':[[12,8,46,8,46,22],[46,22,12,22,12,38],[12,38,48,38],[74,5,74,52],[90,28,74,28],[12,66,12,90],[12,66,88,66,88,90],[12,90,88,90]]};
+const ST=[
+{t:"1. 가로획과 세로획",e:"➖",it:["ㅡ","ㅣ","#"],tip:"🖌️ 붓을 수직으로 세우고, 쓰는 방향의 반대쪽으로 꾹 누른 뒤 → 일정한 굵기로 선을 긋고 → 끝에서 붓을 살짝 되돌려 마무리해요. (가로획은 왼쪽→오른쪽, 세로획은 위→아래)"},
+{t:"2. 꺾은획·빗금·굽은획",e:"📐",it:["ㄱ","ㄴ","ㅈ","ㅇ"],tip:"📐 꺾는 곳(파란 점선 동그라미)에서는 붓을 살짝 들어 방향을 바꾼 뒤 직각으로 써요. 빗금은 붓을 기울이지 않고 수직으로 세워 좌우가 대칭이 되게 써요. ‘ㅇ’은 일정한 굵기로 한 번에 써요."},
+{t:"3. 자음과 모음",e:"🔤",it:["ㄱ","ㄹ","ㅅ","ㅇ","ㅏ","ㅓ","ㅗ","ㅜ"],tip:"🔤 획의 간격, 길이, 굵기에 유의해서 써요. ㅏ와 ㅜ에서 두 획은 가운데에서 겹치게 써요."},
+{t:"4. 나무, 우리",e:"🌳",it:["나","무","우","리","나무","우리"],tip:"🌳 ‘ㄴ’은 붓 방향을 바꿔 직각이 되게 써요. ‘ㅇ’은 일정한 굵기로 쓰며 겹친 곳이 드러나지 않게, ‘ㄹ’은 가로획의 위아래 간격을 같게 써요."},
+{t:"5. 파도 소리",e:"🌊",it:["파","도","소","리","파도소리"],tip:"🌊 파→도→소→리 순서로 한 글자씩 연습하고, 마지막에 칸에 맞춰 ‘파도 소리’를 써 보세요."},
+{t:"6. 하늬바람",e:"🍃",it:["하","늬","바","람","하늬바람"],tip:"🍃 하→늬→바→람 순서로 한 글자씩 연습하고, 마지막에 칸에 맞춰 ‘하늬바람’을 써 보세요."}];
+const $=id=>document.getElementById(id);
+const bg=$('bg'),gd=$('gd'),ink=$('ink'),wrap=$('wrap'),CV=[bg,gd,ink];
+let prog={};try{prog=JSON.parse(localStorage.getItem('bp2')||'{}')}catch(e){}
+function save(){try{localStorage.setItem('bp2',JSON.stringify(prog))}catch(e){}}
+let si=0,ii=0,ph=1,S,W,H,dpr,cols,rows,strokes=[],k=0,idx=0,act=false,trail=[],fr=[],hint=false,mist=0;
+
+function home(){$('play').hidden=true;$('home').hidden=false;
+ $('stages').innerHTML=ST.map((s,i)=>{const got=s.it.reduce((a,_,j)=>a+(prog[i+'-'+j]||0),0);
+  return `<button class="st" data-i="${i}"><span class="e">${s.e}</span><span>${s.t}<small>⭐ ${got} / ${s.it.length*3}</small></span></button>`}).join('');
+ document.querySelectorAll('.st').forEach(b=>b.onclick=()=>{si=+b.dataset.i;ii=0;$('home').hidden=true;$('play').hidden=false;setup(1)});}
+function dots(){$('dots').textContent=ST[si].it.map((_,j)=>j==ii?'🔸':(prog[si+'-'+j]?'⭐':'○')).join(' ')}
+const rs=(p,st)=>{const o=[p[0]];let carry=0;for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i],d=Math.hypot(b.x-a.x,b.y-a.y);let t=st-carry;while(t<=d){o.push({x:a.x+(b.x-a.x)*t/d,y:a.y+(b.y-a.y)*t/d});t+=st}carry=d-(t-st)}o.push(p[p.length-1]);return o};
+function setup(p){
+ ph=p;const ch=[...ST[si].it[ii]],n=ch.length;cols=n==4?2:n;rows=n==4?2:1;
+ $('ptitle').textContent=ST[si].t+(ph==1?'  ① 따라 쓰기':'  ② 혼자 쓰기');$('tip').textContent=ST[si].tip;
+ const w=Math.min(innerWidth*.94,960),h=innerHeight-300;
+ S=Math.floor(Math.max(130,Math.min(w/cols,h/rows,330)));W=S*cols;H=S*rows;dpr=window.devicePixelRatio||1;
+ wrap.style.width=W+'px';wrap.style.height=H+'px';
+ CV.forEach(v=>{v.width=W*dpr;v.height=H*dpr;v.style.width=W+'px';v.style.height=H+'px';v.getContext('2d').setTransform(dpr,0,0,dpr,0,0)});
+ const g=bg.getContext('2d');g.fillStyle='#fffdf7';g.fillRect(0,0,W,H);g.strokeStyle='#d9b99b';g.lineWidth=1;g.setLineDash([5,5]);
+ for(let a=0;a<cols;a++)for(let r=0;r<rows;r++){const x=a*S,y=r*S;g.strokeRect(x,y,S,S);g.beginPath();g.moveTo(x+S/2,y);g.lineTo(x+S/2,y+S);g.moveTo(x,y+S/2);g.lineTo(x+S,y+S/2);g.stroke()}
+ strokes=[];ch.forEach((t,ci)=>{const ox=(ci%cols)*S,oy=Math.floor(ci/cols)*S;
+  G[t].forEach((a,i)=>{const pts=[];for(let j=0;j<a.length;j+=2)pts.push({x:ox+a[j]*S/100,y:oy+a[j+1]*S/100});strokes.push({pts,cp:rs(pts,S*.04),n:i+1,done:false})})});
+ k=0;idx=0;act=false;trail=[];fr=[];hint=false;mist=0;
+ $('hint').hidden=ph==1;$('chk').hidden=ph==1;$('nxt').hidden=true;$('clr').textContent=ph==1?'🧽 처음부터':'🧽 지우기';
+ $('msg').textContent=ph==1?'주황색 ①에서 시작해서 화살표 방향으로 써요 ✍️':'안 보고 혼자 써 보세요! 어려우면 💡 힌트';
+ dots();render();}
+function line(g,pts,w,col){g.strokeStyle=col;g.lineWidth=w;g.lineCap='round';g.lineJoin='round';g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));if(pts.length==1)g.lineTo(pts[0].x+.01,pts[0].y);g.stroke()}
+function brush(g,pts){const w=S*.1;line(g,pts,w,'#1a1a1a');g.fillStyle='#1a1a1a';g.beginPath();g.arc(pts[0].x,pts[0].y,w*.68,0,7);g.fill()}
+function badge(g,p,n,r,on){g.fillStyle=on?'#e8590c':'#fff';g.strokeStyle=on?'#fff':'#999';g.lineWidth=2;g.beginPath();g.arc(p.x,p.y,r,0,7);g.fill();g.stroke();g.fillStyle=on?'#fff':'#777';g.font=`700 ${r*1.3}px sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText(n,p.x,p.y+1)}
+function arrow(g,a,b){const m={x:(a.x+b.x)/2,y:(a.y+b.y)/2},t=Math.atan2(b.y-a.y,b.x-a.x),z=S*.05;g.fillStyle='#e8590c';g.beginPath();g.moveTo(m.x+Math.cos(t)*z,m.y+Math.sin(t)*z);g.lineTo(m.x+Math.cos(t+2.5)*z,m.y+Math.sin(t+2.5)*z);g.lineTo(m.x+Math.cos(t-2.5)*z,m.y+Math.sin(t-2.5)*z);g.fill()}
+function render(){
+ const gg=gd.getContext('2d'),ig=ink.getContext('2d');gg.clearRect(0,0,W,H);ig.clearRect(0,0,W,H);
+ if(ph==1||hint)strokes.forEach((s,i)=>{if(!s.done)line(gg,s.pts,S*.1,i==k&&ph==1?'rgba(0,0,0,.3)':'rgba(0,0,0,.14)')});
+ if(ph==1){strokes.forEach((s,i)=>{if(!s.done&&i!=k)badge(gg,s.pts[0],s.n,S*.04,false)});
+  const s=strokes[k];if(s){const p=s.pts;
+   if(p.length>6){arrow(gg,p[6],p[7]);arrow(gg,p[20],p[21])}else{
+    for(let i=1;i<p.length;i++){if(Math.hypot(p[i].x-p[i-1].x,p[i].y-p[i-1].y)>S*.12)arrow(gg,p[i-1],p[i]);if(i<p.length-1){gg.strokeStyle='#1c7ed6';gg.lineWidth=2.5;gg.setLineDash([4,3]);gg.beginPath();gg.arc(p[i].x,p[i].y,S*.07,0,7);gg.stroke();gg.setLineDash([])}}}
+   badge(gg,p[0],s.n,S*.055,true)}}
+ strokes.forEach(s=>{if(s.done)brush(ig,s.pts)});
+ fr.forEach(t=>brush(ig,t));if(trail.length)brush(ig,trail);}
+const pos=e=>{const r=ink.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+ink.addEventListener('pointerdown',e=>{e.preventDefault();try{ink.setPointerCapture(e.pointerId)}catch(_){}
+ const p=pos(e);
+ if(ph==1){const s=strokes[k];if(!s)return;
+  if(dist(p,s.cp[0])<Math.max(S*.16,24)){act=true;idx=0;trail=[p];$('msg').textContent='그대로 쭉~ 따라가요!'}else $('msg').textContent='주황색 숫자 '+s.n+'에서 시작해요 👆'}
+ else{act=true;trail=[p]}
+ render()});
+ink.addEventListener('pointermove',e=>{if(!act)return;e.preventDefault();const p=pos(e);trail.push(p);
+ if(ph==1){const s=strokes[k],tol=Math.max(S*.1,18);let b=idx;for(let j=idx+1;j<=Math.min(idx+4,s.cp.length-1);j++)if(dist(p,s.cp[j])<tol)b=j;idx=b;
+  if(idx>=s.cp.length-2)done1()}
+ render()});
+function done1(){const s=strokes[k];s.done=true;act=false;trail=[];k++;
+ if(k>=strokes.length){$('msg').textContent='👏 잘 썼어요! 이제 혼자 써 볼까요?';$('nxt').textContent='혼자 써 보기 ✍️';$('nxt').hidden=false}else $('msg').textContent='좋아요! 다음은 ②번 획 ➡️'.replace('②',strokes[k].n)}
+['pointerup','pointercancel'].forEach(t=>ink.addEventListener(t,()=>{if(!act)return;act=false;
+ if(ph==1){trail=[];mist++;$('msg').textContent='앗! 처음 점에서 다시 한 번 써 봐요 🙂'}else{if(trail.length)fr.push(trail);trail=[]}
+ render()}));
+$('clr').onclick=()=>{if(ph==1){strokes.forEach(s=>s.done=false);k=0;trail=[];act=false;$('nxt').hidden=true;$('msg').textContent='처음부터 다시! 주황색 ①에서 시작해요'}else{fr=[];trail=[];$('chk').hidden=false;$('nxt').hidden=true;$('msg').textContent='다시 써 보세요 ✍️'}render()};
+$('hint').onclick=()=>{hint=true;render();setTimeout(()=>{hint=false;render()},1400)};
+function mk(w){const v=document.createElement('canvas');v.width=W*dpr;v.height=H*dpr;const g=v.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);strokes.forEach(s=>line(g,s.pts,w,'#000'));return g.getImageData(0,0,v.width,v.height).data}
+function score(){const m=mk(S*.1),d=mk(S*.24),q=ink.getContext('2d').getImageData(0,0,ink.width,ink.height).data;let gt=0,gc=0,kt=0,out=0;
+ for(let i=3;i<m.length;i+=4){const gi=m[i]>128,ki=q[i]>128;if(gi){gt++;if(ki)gc++}if(ki){kt++;if(d[i]<=128)out++}}
+ return kt<gt*.03?0:gc/gt-.6*(out/kt)}
+$('chk').onclick=()=>{const sc=score(),st=sc>=.7?3:sc>=.5?2:sc>=.3?1:0;
+ $('msg').textContent='⭐'.repeat(st)+(st?' ':'')+['모양이 많이 달라요. 🧽 지우고 💡 힌트를 보고 다시!','조금만 더 정확히! 😊 그래도 통과!','잘했어요! 👏','참 잘했어요! 🎉'][st];
+ if(st){prog[si+'-'+ii]=Math.max(prog[si+'-'+ii]||0,st);save();dots();$('chk').hidden=true;$('nxt').textContent=ii+1>=ST[si].it.length?'🏠 처음으로':'다음 ➡️';$('nxt').hidden=false}};
+$('nxt').onclick=()=>{if(ph==1){setup(2);return}if(ii+1>=ST[si].it.length){home();return}ii++;setup(1)};
+$('back').onclick=home;home();
+</script></body></html>
